@@ -1,9 +1,24 @@
-from typing import Union
+from typing import Union, Callable
 
 import logging
 import time
 
 logger = logging.getLogger("Instructions")
+
+TBL_INVERT_DIRECTION = False
+TBL_TID = 0
+ARM_TID = 1
+
+arm_to_angle: Union[Callable, None] = None
+move_tbl_degrees: Union[Callable, None] = None
+
+
+def set_movement_methods(arm: Callable, tbl: Callable):
+    # * Do I like this, no, but I'm waiting for motor drivers to be able to test this in the real world so this isn't
+    # * supposed to be pretty.
+    global arm_to_angle, move_tbl_degrees
+    arm_to_angle = arm
+    move_tbl_degrees = tbl
 
 
 def parse_multiline_str(instructions: str) -> list["BaseInstruction"]:
@@ -124,10 +139,13 @@ class RotateTool(BaseInstruction):
         return f"ROT i{self.tool_id} d{self.direction} a{self.degrees} s{self.speed}"
 
     def execute(self):
+        if None in (arm_to_angle, move_tbl_degrees):
+            raise ValueError("Movement methods not set!")
+
         if self.tool_id == ARM_TID:
-            rotate_arm_to(degrees=self.degrees)
+            arm_to_angle(self.degrees)
         elif self.tool_id == TBL_TID:
-            move_tbl_degrees(degrees=self.degrees, direction=self.direction)
+            move_tbl_degrees(self.degrees, self.direction)
 
 
 class PlaceNail(BaseInstruction):
@@ -198,7 +216,7 @@ class Beep(BaseInstruction):
     def execute(self):
         count = 0
         while count > self.repeat:
-            beep(self.durations_ms)
+            print("beep!")
 
             count += 1
             if count > self.repeat:

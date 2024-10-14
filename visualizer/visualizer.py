@@ -12,7 +12,7 @@ from pygame.surface import Surface
 
 SERVO_TIME_PER_60_DEG = 0.17
 BASE_STEPS_PER_REVOLUTION: int = 200
-MICRO_STEPS: int = 10
+MICRO_STEPS: int = 32
 
 STP_P_REV: int = BASE_STEPS_PER_REVOLUTION * MICRO_STEPS
 STP_P_DEG: float = STP_P_REV / 360
@@ -52,7 +52,7 @@ class Arm:
 
         step_size = difference / frames
         for _ in range(frames):
-            self.arm_angle += step_size
+            self.arm_angle -= step_size
             yield
 
     def arm_to_angle(self, angle):
@@ -170,7 +170,7 @@ class Visualizer:
 
         self.pin_count = pin_count
 
-        self.target_framerate = 120
+        self.target_framerate = 240
         self.last_framerate = self.target_framerate
 
         self.width = width * scale
@@ -179,7 +179,7 @@ class Visualizer:
 
         self.arm_movement_task = None
         self.arm_angle = 10
-        self.arm_offset = -20
+        self.arm_offset = -10
         self.target_arm_angle = self.arm_angle
 
         self.screen = pygame.display.set_mode([self.width, self.height])
@@ -209,19 +209,13 @@ class Visualizer:
         pygame.display.flip()
 
     def run(self):
-        cw = False
-        while self.running:
-            self.update()
-            self.last_framerate = self.clock.get_fps()
+        try:
+            while self.running:
+                self.update()
+                self.last_framerate = self.clock.get_fps()
 
-            if self.arm.arm_movement_task is None:
-                self.arm.arm_to_angle(-10 if self.arm.target_arm_angle == 10 else 10)
-                continue
+                self.clock.tick(self.target_framerate)
 
-            if self.table.move_tbl_task is None:
-                self.table.move_tbl_degrees(50, Direction.CW if cw else Direction.CCW)
-                cw = not cw
-
-            self.clock.tick(self.target_framerate)
-
-        pygame.quit()
+            pygame.quit()
+        except Exception as e:
+            print(e)
