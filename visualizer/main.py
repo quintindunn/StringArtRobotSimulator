@@ -25,4 +25,5 @@ if __name__ == '__main__':
                visualizer.running):
             pass
         if instruction and visualizer.running:
+            visualizer.set_current_command(instruction.instruction)
             instruction.execute()

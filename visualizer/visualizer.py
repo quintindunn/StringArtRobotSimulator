@@ -10,6 +10,8 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "True"
 import pygame
 from pygame.surface import Surface
 
+pygame.init()
+
 SERVO_TIME_PER_60_DEG = 0.17
 BASE_STEPS_PER_REVOLUTION: int = 200
 MICRO_STEPS: int = 32
@@ -165,31 +167,40 @@ class Visualizer:
     def __init__(self, width: int, height: int, pin_count: int = 150, scale: int = 1):
         self.running = True
 
+        self.width = width * scale
+        self.height = height * scale
+        self.center = (int(self.width / 2), int(self.height / 2))
+
+        self.arm_offset = -10
         self.needle_length = 60 * scale
         self.table_radius = 150 * scale
-
         self.pin_count = pin_count
 
         self.target_framerate = 240
         self.last_framerate = self.target_framerate
 
-        self.width = width * scale
-        self.height = height * scale
-        self.center = (int(self.width / 2), int(self.height / 2))
-
-        self.arm_movement_task = None
-        self.arm_angle = 10
-        self.arm_offset = -10
-        self.target_arm_angle = self.arm_angle
+        self._current_command = ""
 
         self.screen = pygame.display.set_mode([self.width, self.height])
         self.clock = pygame.time.Clock()
-
-        arm_origin = (self.width // 2 - self.table_radius, self.height // 2)
-        self.arm = Arm(origin=(arm_origin[0] + self.arm_offset, arm_origin[1]), target_framerate=self.target_framerate,
-                       needle_length=self.needle_length, screen=self.screen)
+        self.arm = Arm(origin=(self.width // 2 - self.table_radius + self.arm_offset, self.height // 2),
+                       target_framerate=self.target_framerate, needle_length=self.needle_length, screen=self.screen)
         self.table = Table(table_origin=self.center, table_radius=self.table_radius, screen=self.screen,
                            pin_count=self.pin_count)
+
+    def set_current_command(self, command: str):
+        self._current_command = command
+
+    def draw_text(self, origin: tuple[int, int], text: str, size: int = 20, color: tuple[int, int, int] = (0, 0, 0)):
+        font = pygame.font.SysFont("Arial", size)
+        blit = font.render(text, True, color)
+        self.screen.blit(blit, origin)
+
+    def update_text(self):
+        self.draw_text((0, 0), "StringArtBot", size=20)
+
+        command_origin = self.center[0] - self.table_radius, self.center[1] - self.table_radius - 40
+        self.draw_text(command_origin, f"Current Command: {self._current_command}")
 
     def update_events(self):
         for event in pygame.event.get():
@@ -205,6 +216,8 @@ class Visualizer:
 
         self.table.update()
         self.arm.update()
+
+        self.update_text()
 
         pygame.display.flip()
 
