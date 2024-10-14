@@ -176,7 +176,7 @@ class Visualizer:
         self.table_radius = 150 * scale
         self.pin_count = pin_count
 
-        self.target_framerate = 240
+        self.target_framerate = 0
         self.last_framerate = self.target_framerate
 
         self._current_command = ""
@@ -210,6 +210,8 @@ class Visualizer:
         self.draw_text_centered(command_origin, f"Current Command")
         command_origin = self.center[0], self.center[1] - self.table_radius - 40
         self.draw_text_centered(command_origin, f"{self._current_command}")
+
+        self.draw_text((0, 40), f"FPS: {self.last_framerate:.2f}", size=20)
 
     def update_events(self):
         for event in pygame.event.get():
