@@ -196,11 +196,20 @@ class Visualizer:
         blit = font.render(text, True, color)
         self.screen.blit(blit, origin)
 
+    def draw_text_centered(self, origin: tuple[int, int], text: str, size: int = 20,
+                           color: tuple[int, int, int] = (0, 0, 0)):
+        font = pygame.font.SysFont("Arial", size)
+        blit = font.render(text, True, color)
+        text_rect = blit.get_rect(center=origin)  # Center the text around the origin
+        self.screen.blit(blit, text_rect)
+
     def update_text(self):
         self.draw_text((0, 0), "StringArtBot", size=20)
 
-        command_origin = self.center[0] - self.table_radius, self.center[1] - self.table_radius - 40
-        self.draw_text(command_origin, f"Current Command: {self._current_command}")
+        command_origin = self.center[0], self.center[1] - self.table_radius - 65
+        self.draw_text_centered(command_origin, f"Current Command")
+        command_origin = self.center[0], self.center[1] - self.table_radius - 40
+        self.draw_text_centered(command_origin, f"{self._current_command}")
 
     def update_events(self):
         for event in pygame.event.get():
