@@ -1,5 +1,6 @@
 import math
 import os
+import time
 
 from math import cos, sin, pi
 from instructions import Direction
@@ -14,7 +15,7 @@ pygame.init()
 
 SERVO_TIME_PER_60_DEG = 0.17
 BASE_STEPS_PER_REVOLUTION: int = 200
-MICRO_STEPS: int = 32
+MICRO_STEPS: int = 8
 
 STP_P_REV: int = BASE_STEPS_PER_REVOLUTION * MICRO_STEPS
 STP_P_DEG: float = STP_P_REV / 360
@@ -84,7 +85,7 @@ class Table:
         self.screen = screen
 
         self.pin_count = pin_count
-        self.table_angle = 180
+        self.table_angle = 0
 
         self.error = 0
         self.current_angle = 0
@@ -113,54 +114,40 @@ class Table:
 
             theta += spacing
 
-    def move_tbl_degrees(self, degrees: int, direction: int):
-        self.move_tbl_task = self._move_tbl_degrees(degrees, direction)
+    def move_tbl_degrees(self, angle: float):
+        self.move_tbl_task = self._move_tbl_degrees(angle)
+
+    @staticmethod
+    def calculate_relative_rotation(angle_1: float, angle_2: int) -> tuple[float, int | None]:
+        angle_1 %= 360
+        angle_2 %= 360
+
+        theta = ((angle_2 - angle_1) + 180) % 360 - 180
+        direction = Direction.CCW if theta > 0 else Direction.CW if theta < 0 else None
+
+        return theta, direction
 
     def step(self, direction: int):
         if direction == Direction.CW:
-            self.table_angle -= DEG_P_STEP
-            return
-        self.table_angle += DEG_P_STEP
-
-    def _move_tbl_degrees(self, degrees: int, direction: int):
-        step = lambda: self.step(direction)
-
-        adjusted_degrees = degrees - self.error
-
-        target_steps = (adjusted_degrees / 360.0) * STP_P_REV
-
-        steps_to_move = int(target_steps)
-
-        best_steps = steps_to_move
-        min_error = float('inf')
-
-        for steps in (steps_to_move, steps_to_move - 1):
-            actual_rotation = (steps / STP_P_REV) * 360.0
-            error_degrees = adjusted_degrees - actual_rotation
-
-            if direction == Direction.CW:
-                cumulative_error = self.error - error_degrees
-            else:
-                cumulative_error = self.error + error_degrees
-
-            if abs(cumulative_error) < abs(min_error):
-                min_error = cumulative_error
-                best_steps = steps
-
-        steps_to_move = best_steps
-        for _ in range(abs(steps_to_move)):
-            dir_val = -1 if Direction.CW else 1
-            self.current_angle = (self.current_angle + dir_val * DEG_P_STEP) % 360
-
-            yield step()
-
-        actual_rotation = (steps_to_move / STP_P_REV) * 360.0
-
-        error_degrees = adjusted_degrees - actual_rotation
-        if direction == Direction.CW:
-            self.error -= error_degrees
+            self.table_angle += DEG_P_STEP
         else:
-            self.error += error_degrees
+            self.table_angle -= DEG_P_STEP
+
+        self.table_angle %= 360
+
+    def _move_tbl_degrees(self, angle: float):
+        angle_diff = (angle - self.table_angle) % 360
+
+        if angle_diff > 180:
+            steps = (360 - angle_diff) / DEG_P_STEP
+            direction = Direction.CCW
+        else:
+            steps = angle_diff / DEG_P_STEP
+            direction = Direction.CW
+
+        for _ in range(round(steps)):
+            self.step(direction)
+            yield
 
 
 class Visualizer:
@@ -212,6 +199,10 @@ class Visualizer:
         self.draw_text_centered(command_origin, f"{self._current_command}")
 
         self.draw_text((0, 40), f"FPS: {self.last_framerate:.2f}", size=20)
+
+        self.draw_text((0, 80), f"Table Angle: {self.table.table_angle:.2f}", size=20)
+        self.draw_text((0, 100), f"Arm Angle: {self.arm.arm_angle:.2f}", size=20)
+
 
     def update_events(self):
         for event in pygame.event.get():

@@ -86,7 +86,7 @@ class RotateTool(BaseInstruction):
         i = 0
 
         tool_id = -99
-        direction = -99
+        absolute = False
         degrees = -99
         speed = -99
 
@@ -95,10 +95,10 @@ class RotateTool(BaseInstruction):
                 i += 1
                 value = int(segment.split("i", 1)[1])
                 tool_id = value
-            elif segment.startswith("d"):
+            elif segment.startswith("abs"):
                 i += 1
-                value = int(segment.split("d", 1)[1])
-                direction = value
+                value = segment.split("abs", 1)[1] == "1"
+                absolute = value
             elif segment.startswith("a"):
                 i += 1
                 value = float(segment.split("a", 1)[1])
@@ -108,35 +108,17 @@ class RotateTool(BaseInstruction):
                 value = int(segment.split("s", 1)[1])
                 speed = value
 
-        if direction not in (Direction.CW, Direction.CCW, Direction.IGNORED):
-            raise ValueError(f"Direction \"{direction}\" not recognized")
-
-        if degrees > 0:
-            degrees = abs(degrees)
-            direction = self._invert_direction(direction)
-
         if speed not in range(1, 256):
             raise ValueError(f"Speed {speed} not in range (1-255)")
 
-        self.direction = direction
         self.degrees = degrees
         self.speed = speed
         self.tool_id = tool_id
-
-    @staticmethod
-    def _invert_direction(direction):
-        # Not using direction = -direction so Direction's values can be adjusted if say we only want positive ints.
-        if direction == Direction.CW:
-            return Direction.CCW
-
-        if direction == Direction.IGNORED:
-            return Direction.IGNORED
-
-        return Direction.CW
+        self.absolute = absolute
 
     @property
     def instruction(self) -> str:
-        return f"ROT i{self.tool_id} d{self.direction} a{self.degrees} s{self.speed}"
+        return f"ROT i{self.tool_id} a{self.degrees} s{self.speed} abs{int(self.absolute)}"
 
     def execute(self):
         if None in (arm_to_angle, move_tbl_degrees):
@@ -145,7 +127,7 @@ class RotateTool(BaseInstruction):
         if self.tool_id == ARM_TID:
             arm_to_angle(self.degrees)
         elif self.tool_id == TBL_TID:
-            move_tbl_degrees(self.degrees, self.direction)
+            move_tbl_degrees(self.degrees)
 
 
 class PlaceNail(BaseInstruction):
