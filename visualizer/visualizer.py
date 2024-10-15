@@ -1,6 +1,5 @@
 import math
 import os
-import time
 
 from math import cos, sin, pi
 from instructions import Direction
@@ -12,6 +11,7 @@ import pygame
 from pygame.surface import Surface
 
 pygame.init()
+pygame.display.set_caption("StringArtBot Simulator")
 
 SERVO_TIME_PER_60_DEG = 0.17
 BASE_STEPS_PER_REVOLUTION: int = 200
@@ -51,6 +51,7 @@ class Arm:
         frames = int(self.target_framerate * seconds)
 
         if frames == 0:
+            self.arm_angle = angle
             return
 
         step_size = difference / frames
