@@ -4,31 +4,17 @@ import os
 from math import cos, sin, pi
 from instructions import Direction
 
-from typing import Iterator
-
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "True"
 import pygame
 from pygame.surface import Surface
 
+from config import (SERVO_TIME_PER_60_DEG, DEG_P_STEP, WIN_TITLE, DISP_TITLE, SHOW_FPS, SHOW_ANGLES, PIN_GRADIENT,
+                    BOARD_COLOR, ARM_ORIGIN_COLOR, ARM_HEAD_COLOR, ARM_THREAD_TRAVEL_COLOR,
+                    ARM_OFFSET, NEEDLE_LENGTH, TABLE_RADIUS, TEXT_COLOR, BACKGROUND_COLOR, FONT_SIZE, TEXT_PADDING,
+                    COMMAND_TEXT_OFFSET, FONT)
+
 pygame.init()
-pygame.display.set_caption("StringArtBot Simulator")
-
-SERVO_TIME_PER_60_DEG = 0.17
-BASE_STEPS_PER_REVOLUTION: int = 200
-MICRO_STEPS: int = 8
-
-STP_P_REV: int = BASE_STEPS_PER_REVOLUTION * MICRO_STEPS
-STP_P_DEG: float = STP_P_REV / 360
-DEG_P_STEP: float = 360 / STP_P_REV
-
-
-def generate_gradient(color1: tuple[int, int, int], color2: tuple[int, int, int], n: int) -> (
-        Iterator)[tuple[int, int, int]]:
-    for i in range(n):
-        r = color1[0] + (color2[0] - color1[0]) * i / (n - 1)
-        g = color1[1] + (color2[1] - color1[1]) * i / (n - 1)
-        b = color1[2] + (color2[2] - color1[2]) * i / (n - 1)
-        yield int(r), int(g), int(b)
+pygame.display.set_caption(WIN_TITLE)
 
 
 class Arm:
@@ -69,14 +55,14 @@ class Arm:
             except StopIteration:
                 self.arm_movement_task = None
 
-        pygame.draw.circle(self.screen, (0, 0, 0), self.origin, 4)
+        pygame.draw.circle(self.screen, ARM_ORIGIN_COLOR, self.origin, 4)
 
         offset_length = self.needle_length * math.sin(self.arm_angle * math.pi / 180)
 
         point_a = self.origin
         point_b = self.origin[0] + offset_length, self.origin[1]
-        pygame.draw.line(self.screen, (0, 0, 255), point_a, point_b, width=2)
-        pygame.draw.circle(self.screen, (255, 0, 0), point_b, 4)
+        pygame.draw.line(self.screen, ARM_THREAD_TRAVEL_COLOR, point_a, point_b, width=2)
+        pygame.draw.circle(self.screen, ARM_HEAD_COLOR, point_b, 4)
 
 
 class Table:
@@ -88,13 +74,12 @@ class Table:
         self.pin_count = pin_count
         self.table_angle = 0
 
-        self.error = 0
         self.current_angle = 0
 
         self.move_tbl_task = None
 
     def update(self):
-        pygame.draw.circle(self.screen, (255, 255, 255), self.origin, self.radius)
+        pygame.draw.circle(self.screen, BOARD_COLOR, self.origin, self.radius)
 
         if self.move_tbl_task is not None:
             try:
@@ -105,7 +90,8 @@ class Table:
         # draw the pins:
         theta = self.table_angle
         spacing = 360 / self.pin_count
-        gradient = generate_gradient((255, 0, 0), (0, 255, 0), self.pin_count)
+        gradient = PIN_GRADIENT(self.pin_count)
+
         for i in range(0, self.pin_count):
             x1 = self.radius * cos(theta * (pi / 180))
             y1 = self.radius * sin(theta * (pi / 180))
@@ -159,15 +145,15 @@ class Visualizer:
         self.height = height * scale
         self.center = (int(self.width / 2), int(self.height / 2))
 
-        self.arm_offset = -10
-        self.needle_length = 60 * scale
-        self.table_radius = 150 * scale
+        self.arm_offset = ARM_OFFSET
+        self.needle_length = NEEDLE_LENGTH * scale
+        self.table_radius = TABLE_RADIUS * scale
         self.pin_count = pin_count
 
         self.target_framerate = 0
         self.last_framerate = self.target_framerate
 
-        self._current_command = ""
+        self._current_command = "N/A"
 
         self.screen = pygame.display.set_mode([self.width, self.height])
         self.clock = pygame.time.Clock()
@@ -180,30 +166,34 @@ class Visualizer:
         self._current_command = command
 
     def draw_text(self, origin: tuple[int, int], text: str, size: int = 20, color: tuple[int, int, int] = (0, 0, 0)):
-        font = pygame.font.SysFont("Arial", size)
+        font = FONT(size)
         blit = font.render(text, True, color)
         self.screen.blit(blit, origin)
 
     def draw_text_centered(self, origin: tuple[int, int], text: str, size: int = 20,
                            color: tuple[int, int, int] = (0, 0, 0)):
-        font = pygame.font.SysFont("Arial", size)
+        font = FONT(size)
         blit = font.render(text, True, color)
         text_rect = blit.get_rect(center=origin)  # Center the text around the origin
         self.screen.blit(blit, text_rect)
 
     def update_text(self):
-        self.draw_text((0, 0), "StringArtBot", size=20)
+        self.draw_text((TEXT_PADDING, 0), DISP_TITLE, size=FONT_SIZE)
 
-        command_origin = self.center[0], self.center[1] - self.table_radius - 65
-        self.draw_text_centered(command_origin, f"Current Command")
-        command_origin = self.center[0], self.center[1] - self.table_radius - 40
-        self.draw_text_centered(command_origin, f"{self._current_command}")
+        command_origin = self.center[0], self.center[1] - self.table_radius + COMMAND_TEXT_OFFSET
+        self.draw_text_centered(command_origin, f"Current Command", color=TEXT_COLOR, size=FONT_SIZE)
+        command_origin = self.center[0], self.center[1] - self.table_radius + COMMAND_TEXT_OFFSET + FONT_SIZE
+        self.draw_text_centered(command_origin, f"{self._current_command}", color=TEXT_COLOR, size=FONT_SIZE)
 
-        self.draw_text((0, 40), f"FPS: {self.last_framerate:.2f}", size=20)
+        if SHOW_FPS:
+            self.draw_text((TEXT_PADDING, FONT_SIZE*2), f"FPS: {self.last_framerate:.2f}",
+                           color=TEXT_COLOR, size=FONT_SIZE)
 
-        self.draw_text((0, 80), f"Table Angle: {self.table.table_angle:.2f}", size=20)
-        self.draw_text((0, 100), f"Arm Angle: {self.arm.arm_angle:.2f}", size=20)
-
+        if SHOW_ANGLES:
+            self.draw_text((TEXT_PADDING, FONT_SIZE*4), f"Table Angle: {self.table.table_angle:.2f}",
+                           color=TEXT_COLOR, size=FONT_SIZE)
+            self.draw_text((TEXT_PADDING, FONT_SIZE*5), f"Arm Angle: {self.arm.arm_angle:.2f}",
+                           color=TEXT_COLOR, size=FONT_SIZE)
 
     def update_events(self):
         for event in pygame.event.get():
@@ -211,7 +201,7 @@ class Visualizer:
                 self.running = False
 
     def update_background(self):
-        self.screen.fill((200, 200, 200))
+        self.screen.fill(BACKGROUND_COLOR)
 
     def update(self):
         self.update_events()
