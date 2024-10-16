@@ -6,6 +6,8 @@ import time
 from visualizer import Visualizer
 from instructions import set_movement_methods, parse_multiline_str
 
+from config import (WIN_HEIGHT, WIN_WIDTH, PIN_COUNT)
+
 
 def instruction_logic():
     global visualizer
@@ -29,5 +31,5 @@ if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
     threading.Thread(target=instruction_logic, daemon=True).start()
-    visualizer: Visualizer = Visualizer(500, 500, pin_count=150, scale=2)
+    visualizer: Visualizer = Visualizer(WIN_WIDTH, WIN_HEIGHT, pin_count=PIN_COUNT, scale=2)
     visualizer.run()
